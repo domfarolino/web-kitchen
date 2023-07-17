@@ -1,2 +1,2 @@
-# web-kitchen
+# web-kitchen 🍳
 Custom, reproducible web demos
