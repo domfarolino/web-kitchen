@@ -1,0 +1,496 @@
+<style>
+  html, body {
+    margin: 15px 20px 20px 20px;
+    font-size: 17px;
+    font-family: 'Helvetica';
+  }
+
+  noscript > h1 {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    border: 2px solid green;
+    padding: 10px;
+    font-family: andale mono;
+    color: red;
+    font-style: italic;
+    transform: translate(-50%);
+    filter: drop-shadow(5px 5px 4px rgba(256, 0, 0, .6));
+    background: white;
+  }
+
+  /* From: https://www.w3schools.com/howto/howto_css_two_columns.asp */
+  .column {
+    float: left;
+    width: 50%;
+    box-sizing: border-box;
+    padding: 10px 15px;
+  }
+  .column:first-of-type {
+    border-right: 2px solid #818181;
+  }
+  .row:after {
+    content: "";
+    display: table;
+    clear: both;
+  }
+  .row {
+    width: 90%;
+    margin: 0 auto;
+    margin-top: 30px;
+  }
+
+  @media (max-width: 1250px) {
+    .row {
+      width: 100%;
+    }
+  }
+
+  /* From: https://stackoverflow.com/questions/270612/ */
+  .scroller {
+    overflow: auto;
+    height: 100px;
+    display: flex;
+    flex-direction: column-reverse;
+  }
+  .scroller .scroller-content .item {
+    height: 20px;
+    transform: translateZ(0); /* fixes a bug in Safari iOS where the scroller doesn't update */
+  }
+
+  table {
+    width: 100%;
+  }
+  table, th, td {
+    border: 1px solid;
+  }
+  th, td {
+    padding: 5px;
+  }
+  td {
+    font-family: monospace;
+    font-size: 16px;
+  }
+
+  button {
+    padding: 7px;
+    margin: 1px;
+  }
+</style>
+
+<h1 style='margin-bottom: 5px;'>
+  Host an iframe
+</h1>
+
+<span id=originElement>Origin: </span>. Try <a href=/host-fenced-frame.html>host-fenced-frame.html</a>
+
+<noscript>
+  <h1>
+    Script is disabled
+  </h1>
+</noscript>
+
+<!-- A modal dialog containing a form -->
+<dialog id="favDialog">
+  <form method="dialog">
+    <p>
+      <label>Favorite animal:
+        <select>
+          <option value="default">Choose…</option>
+          <option>Brine shrimp</option>
+          <option>Red panda</option>
+          <option>Spider monkey</option>
+        </select>
+      </label>
+    </p>
+    <div>
+      <button value="cancel">Cancel</button>
+      <button id="confirmBtn" value="default">Confirm</button>
+    </div>
+  </form>
+</dialog>
+<output></output>
+
+<div class="row">
+  <div class="column">
+    <iframe style="resize: both;" width="100%" height="360px" id=iframe></iframe>
+    <input style="width: 100%; font-size: 16px;" id=src type=text placeholder="iframe URL here">
+    <button onclick="navigate()">Load iframe</button>
+    <button onclick="src.value = '/host-iframe.html'; navigate()">Load same-origin iframe</button>
+    <button onclick="loadCrossOriginHostIframe()">Load cross-origin iframe</button>
+    <button onclick="src.value = 'https://example.com/'; navigate()">Load example.com</button>
+    <button onclick="src.value='https://subframe.glitch.me/navigate-after-two-seconds.html';navigate()">Load a subframe with onbeforeunload handler</button>
+    <input type=checkbox id=frameCoopCoep name=frameCoopCoep>
+    <label for=frameCoopCoep>Request <code>CORP/COEP</code></label>
+    <div class=row style="width: 100%; margin-top:0;">
+      <div class=column id=flags>
+        <h4 style="margin-top:0;">Sandbox</h4>
+        <input type=checkbox id=sandbox name=sandbox>
+        <label for=sandbox>sandbox</label>
+        <br>
+        <br>
+      </div>
+      <div class=column id=allowFlags>
+        <h4 style="margin-top:0;">Permissions policies</h4>
+      </div>
+    </div>
+  </div>
+
+  <div class="column">
+    <h2 style="margin-top:0">Settings</h2>
+
+    <button onclick="copySiteStateAndRefresh()" style="background: #1bff1b">Refresh w/ settings</button>
+    <button onclick="copySiteStateAndGetURL()">Copy URL w/ settings</button>
+    <button onclick="queryHasFocus()">Toggle query <code>hasFocus()</code></button>
+    <button onclick="window.open('https://example.com')"><code>window.open()</code> cross-site</button>
+    <button onclick="addHeader('Cross-Origin-Opener-Policy', 'same-origin'); addHeader('Cross-Origin-Embedder-Policy', 'require-corp')">Add <code>COOP/COEP</code> headers</button>
+    <button onclick="addHeader('Content-Security-Policy')">Add <code>CSP</code> header</button>
+    <button onclick="location.href = location.origin + location.pathname + '?headers=Content-Disposition:attachment'">Navigate to download</button>
+    <button id="showDialog"><code>queueDialog()</code> instant</button>
+    <button onclick="queueDialog()"><code>queueDialog()</code> (delay)</button>
+    <button onclick="requestLocation()">Request location</button>
+    <hr>
+
+    <h3>Requested response headers</h3>
+    <i style="font-size: 14px">Editable table:</i>
+    <table>
+      <thead>
+        <tr>
+          <th>Header name</th>
+          <th>Header value</th>
+        </tr>
+      </thead>
+      <tbody id=headerOutput></tbody>
+    </table>
+    <button onclick="addHeader()">Add header</button>
+    <button onclick="Array.from(headerOutput.children).forEach(c => c.remove())">Clear headers</button>
+    <hr>
+
+    <h4>Enabled permissions</h4>
+    <div id=enabled-permissions style="font-size: 14px"></div>
+
+    <h3>Console.log output</h3>
+    <div class="scroller" style="border: 1px solid black; height: 250px; resize: both;">
+      <div class="scroller-content" id=consoleLogOutput></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  window.onerror = e => {
+    console.log(e);
+  }
+
+  window.onload = e => {
+    // Set up console log capture.
+    const realLog = console.log;
+    console.log = (...args) => {
+      for (const arg of args) {
+        realLog(arg);
+        const div = document.createElement('div');
+        div.innerText = arg;
+        div.className = 'item';
+        consoleLogOutput.append(div);
+      }
+    }
+    populateHeaders();
+
+    // Set up sandbox flags. This needs to be done before navigation.
+    const url = new URL(location.href);
+    if (url.searchParams.has('frameSandboxFlags')) {
+      sandbox.checked = true;
+      for (const sandboxFlag of url.searchParams.get('frameSandboxFlags').split(',')) {
+         document.querySelector(`#${sandboxFlag}`).checked = true;
+      }
+    }
+
+    // Set up `alow` attribute. This needs to be done before navigation.
+    if (url.searchParams.has('frameAllowAttr')) {
+      for (const permissionPolicy of url.searchParams.get('frameAllowAttr').split(',')) {
+         document.querySelector(`#${permissionPolicy}`).checked = true;
+      }
+    }
+
+    if (url.searchParams.has('frameCoopCoep'))
+      frameCoopCoep.checked = true;
+
+    // Set up frame source
+    if (url.searchParams.has('frameSrc')) {
+      src.value = url.searchParams.get('frameSrc');
+      navigate();
+    }
+
+    const enabledPermissions = document.featurePolicy.allowedFeatures();
+    for (const permission of enabledPermissions) {
+      document.querySelector('#enabled-permissions').innerText += `${permission}, `;
+    }
+  }
+
+  function populateHeaders() {
+    const url = new URL(location.href);
+    if (!url.searchParams.has('headers'))
+      return;
+
+    const headers = new URL(location.href).searchParams.get('headers');
+    for (const header of headers.split('|')) {
+      // See https://stackoverflow.com/a/4607799/3947332.
+      const headerName = header.split(/:(.*)/s)[0];
+      const headerValue = header.split(/:(.*)/s)[1];
+
+      addHeader(headerName, headerValue);
+    }
+  }
+
+  async function copySiteStateAndRefresh() {
+    location.href = await copySiteStateAndGetURL();
+  }
+
+  async function copySiteStateAndGetURL() {
+    const url = new URL(location.href);
+
+    // Capture frame src
+    if (iframe.src)
+      url.searchParams.set('frameSrc', iframe.src);
+    else
+      url.searchParams.delete('frameSrc');
+
+    // Capture headers (which may have been edited);
+    let headerList = [];
+    const headerRows = Array.from(headerOutput.querySelectorAll('tr'));
+    for (const headerRow of headerRows) {
+      if (headerRow.children[0].innerText === '' || headerRow.children[1].innerText === '')
+        continue;
+      headerList.push(`${headerRow.children[0].innerText}:${headerRow.children[1].innerText}`);
+    }
+    if (headerList.length)
+      url.searchParams.set('headers', headerList.join('|'));
+    else
+      url.searchParams.delete('headers');
+
+    // Capture frame sandbox flags.
+    let sandboxFlags = getSelectedSandboxFlags();
+    console.log(sandboxFlags);
+    if (sandboxFlags.length)
+      url.searchParams.set('frameSandboxFlags', sandboxFlags.join());
+    else
+      url.searchParams.delete('frameSandboxFlags');
+
+    // Capture the selected permission policies.
+    let permissionPolicies = getSelectedPermissionPolicies();
+    console.log(permissionPolicies);
+    if (permissionPolicies.length)
+      url.searchParams.set('frameAllowAttr', permissionPolicies.join());
+    else
+      url.searchParams.delete('frameAllowAttr');
+
+    if (frameCoopCoep.checked)
+      url.searchParams.set('frameCoopCoep', '');
+    else
+      url.searchParams.delete('frameCoopCoep');
+
+    navigator.clipboard.writeText(url);
+    console.log('Copied URL to clipboard');
+    return url;
+  }
+
+  function addHeader(headerName = '<Name>', headerValue = '<Value>') {
+    const tr = headerOutput.appendChild(document.createElement('tr'));
+    const nameTd = tr.appendChild(document.createElement('td'));
+    nameTd.setAttribute('contenteditable', true);
+    nameTd.innerText = headerName;
+    const valueTd = tr.appendChild(document.createElement('td'));
+    valueTd.setAttribute('contenteditable', true);
+    valueTd.innerText = headerValue;
+  }
+
+  originElement.innerText += self.origin;
+  // Build sandbox flags list.
+  const sandbox_flags = [
+    "allow-downloads",
+    "allow-downloads-without-user-activation",
+    "allow-forms",
+    "allow-modals",
+    "allow-orientation-lock",
+    "allow-pointer-lock",
+    "allow-popups",
+    "allow-popups-to-escape-sandbox",
+    "allow-presentation",
+    "allow-same-origin",
+    "allow-scripts",
+    "allow-storage-access-by-user-activation",
+    "allow-top-navigation",
+    "allow-top-navigation-by-user-activation",
+  ];
+  for (const sandbox_flag of sandbox_flags) {
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.id = sandbox_flag;
+    input.name = sandbox_flag;
+    const label = document.createElement('label');
+    label.innerText = sandbox_flag;
+    label.htmlFor = sandbox_flag;
+    const br = document.createElement('br');
+    flags.append(input);
+    flags.append(label);
+    flags.append(br);
+  }
+
+  // Build permission policy list.
+  const permissionPolicyList = [
+    "cross-origin-isolated",
+    "clipboard-read",
+    "clipboard-write",
+    "geolocation",
+    "autoplay",
+  ];
+  for (const permissionPolicy of permissionPolicyList) {
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.id = permissionPolicy;
+    input.name = permissionPolicy;
+    const label = document.createElement('label');
+    label.innerText = permissionPolicy;
+    label.htmlFor = permissionPolicy;
+    const br = document.createElement('br');
+    allowFlags.append(input);
+    allowFlags.append(label);
+    allowFlags.append(br);
+  }
+
+  ////////////////////////////////////////////////////////////////////
+  // The rest of this script is functions, synchronous set-up logic //
+  ////////////////////////////////////////////////////////////////////
+  const showButton = document.getElementById('showDialog');
+  const favDialog = document.getElementById('favDialog');
+  const outputBox = document.querySelector('output');
+  const selectEl = favDialog.querySelector('select');
+  const confirmBtn = favDialog.querySelector('#confirmBtn');
+
+  // "Show the dialog" button opens the <dialog> modally
+  showButton.addEventListener('click', () => {
+      favDialog.showModal();
+  });
+  // "Favorite animal" input sets the value of the submit button
+  selectEl.addEventListener('change', (e) => {
+    confirmBtn.value = selectEl.value;
+  });
+  // "Confirm" button of form triggers "close" on dialog because of [method="dialog"]
+  favDialog.addEventListener('close', () => {
+    outputBox.value = `ReturnValue: ${favDialog.returnValue}.`;
+  });
+
+  function queueDialog() {
+    setTimeout(() => {
+      showButton.click();
+    }, 2000);
+  }
+
+  function requestLocation() {
+    navigator.geolocation.getCurrentPosition(() => {
+      console.log('Success!!!');
+    }, () => {
+      console.log('Error!!');
+    });
+  }
+
+  function getSelectedSandboxFlags() {
+    const list = [];
+
+    if (sandbox.checked) {
+      for (const sandbox_flag of sandbox_flags) {
+        if (document.querySelector('#' + sandbox_flag).checked) {
+          list.push(sandbox_flag);
+        }
+      }
+    }
+
+    return list;
+  }
+  function getSelectedPermissionPolicies() {
+    const list = [];
+
+    for (const permissionPolicy of permissionPolicyList) {
+      if (document.querySelector('#' + permissionPolicy).checked) {
+        list.push(permissionPolicy);
+      }
+    }
+
+    return list;
+  }
+
+  function loadCrossOriginHostIframe() {
+    const origins = [
+      'https://browsing-context.glitch.me',
+      'https://fenced-frames.glitch.me'
+    ];
+
+    let origin = '';
+    if (self.origin === 'null')
+      origin = origins[0];
+    else {
+      origin = self.origin === origins[0] ? origins[1]: origins[0];
+    }
+
+    const url = new URL('host-iframe.html', origin);
+    src.value = url;
+    navigate();
+  }
+
+  function navigate() {
+    // Full reset.
+    iframe.removeAttribute('sandbox');
+
+    if (sandbox.checked) {
+      iframe.sandbox = "";
+      for (const sandbox_flag of sandbox_flags) {
+        if (document.querySelector('#' + sandbox_flag).checked) {
+          iframe.sandbox.add(sandbox_flag);
+        } // if
+      } // for
+    } // if
+
+    iframe.allow = "";
+    for (const permissionPolicy of permissionPolicyList) {
+      if (document.querySelector('#' + permissionPolicy).checked) {
+        iframe.allow = iframe.allow + " " + permissionPolicy + ";";
+      }
+    }
+
+    // Finally set the source
+    const url = new URL(src.value, location.origin);
+    if (frameCoopCoep.checked)
+      url.searchParams.set('headers', 'Cross-Origin-Resource-Policy:cross-origin|Cross-Origin-Embedder-Policy:require-corp');
+    src.value = url;
+    iframe.src = url;
+  }
+
+
+  function queryHasFocus() {
+    if (window.hasFocusInterval) {
+      clearInterval(window.hasFocusInterval);
+      window.hasFocusInterval = undefined;
+      return;
+    }
+
+    window.hasFocusInterval = setInterval(() => {
+      console.log(`document.hasFocus(): ${document.hasFocus()}`);
+      console.log(`document.activeElement: ${document.activeElement}`);
+    }, 500);
+  }
+
+  function refreshIndicators() {
+    if (!navigator.userActivation) {
+        return;
+    }
+    var color = "white";
+    if (navigator.userActivation.hasBeenActive) {
+        color = "lightyellow";
+    }
+    if (navigator.userActivation.isActive) {
+        color = "lightgreen";
+    }
+    document.body.style.backgroundColor = color;
+  }
+  setInterval(refreshIndicators, 100);
+</script>
