@@ -1,10 +1,6 @@
-// server.js
-// where your node app starts
-
-// init project
 const cmd = require("node-cmd");
-var express = require('express');
-var app = express();
+const express = require('express');
+const app = express();
 
 // GitHub web hook for auto-deployment. Inspired by, but modified version of:
 // https://support.glitch.com/t/tutorial-how-to-auto-update-your-project-with-github/8124/1.
