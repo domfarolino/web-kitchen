@@ -47,6 +47,8 @@
     <button onclick="loadCrossOriginHostIframe()">Load cross-origin iframe</button>
     <button onclick="src.value = 'https://example.com/'; navigate()">Load example.com</button>
     <button onclick="src.value = 'about:blank'; navigate()">Load about:blank</button>
+    <button onclick="src.value = 'data:text/html,<h1>data URL resource</h1><script>document.write(Math.random())</script>'; navigate()">Load data: URL</button>
+    <button onclick="fetch(`data:text/html,<h1>blob: URL resource</h1><script>document.write(Math.random())</script>`).then(res => res.blob()).then(blob => {const b = window.URL.createObjectURL(blob); src.value = b; navigate(); setTimeout(() => window.URL.revokeObjectURL(b), 2000)});">Load blob: URL</button>
     <button onclick="src.value='https://subframe.glitch.me/navigate-after-two-seconds.html';navigate()">Load a subframe with onbeforeunload handler</button>
     <input type=checkbox id=frameCoopCoep name=frameCoopCoep>
     <label for=frameCoopCoep>Request <code>CORP/COEP</code></label>
